@@ -11,6 +11,8 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 
+from .exceptions import CircularDependenciesError
+
 
 def camel_to_snake_case(string):
     """
@@ -37,27 +39,29 @@ def recurse_into_sub_environments(func):
     """
     @wraps(func)
     def decorated(self, *args, **kwargs):
-        if self.is_leaf:
-            return func(self, *args, **kwargs)
-        else:
-            function_name = func.__name__
-            responses = {}
-            num_environments = len(self.environments)
+        function_name = func.__name__
+        responses = {}
+        num_environments = len(self.sub_environments)
 
-            # As commands carried out by sub-environments may be blocking,
-            # execute them on separate threads.
+        # As commands carried out by sub-environments may be blocking,
+        # execute them on separate threads.
+        if num_environments:
             with ThreadPoolExecutor(max_workers=num_environments) as executor:
                 futures = [
                     executor.submit(
                         getattr(environment, function_name), *args, **kwargs
                     )
-                    for environment in self.environments.values()
+                    for environment in self.sub_environments
                 ]
                 for future in as_completed(futures):
                     response = future.result()
                     if response:
                         responses.update(response)
-            return responses
+
+        response = func(self, *args, **kwargs)
+        if response:
+            responses.update(response)
+        return responses
 
     return decorated
 
@@ -176,3 +180,34 @@ def get_subclasses(class_type, directory=None):
                         classes[camel_to_snake_case(attr.__name__)] = attr
 
     return classes
+
+
+def _detect_cycles(node, encountered_nodes, available_nodes, path):
+    """
+    Use Depth-first search to detect cycles.
+
+    :returns: A dictionary containing all of the nodes encountered
+    during the depth first search.
+    """
+    for dependency_name in node.dependencies:
+        dependency = available_nodes[dependency_name]
+        status = encountered_nodes.get(dependency)
+        if status == "ENCOUNTERED":
+            # Reformat path to only include the cycle
+            path.append(dependency_name)
+            cycle = path[path.index(dependency_name):]
+            raise CircularDependenciesError(
+                "Found circular dependency involving "
+                "{0}".format(cycle)
+            )
+        elif status is None:
+            encountered_nodes[dependency] = "ENCOUNTERED"
+            path.append(dependency_name)
+            _detect_cycles(
+                dependency,
+                encountered_nodes,
+                available_nodes,
+                path
+            )
+            encountered_nodes[dependency] = "DONE"
+    return encountered_nodes

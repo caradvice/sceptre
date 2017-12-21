@@ -50,9 +50,10 @@ clean-test:
 
 lint:
 	flake8 sceptre tests
+	python setup.py check -r -s -m
 
 test:
-	python setup.py test
+	pytest
 
 test-all:
 	tox
@@ -60,16 +61,14 @@ test-all:
 test-integration: install
 	behave integration-tests/
 
-coverage:
-	coverage run --source sceptre setup.py test
-	coverage report -m
-	coverage html
-	$(BROWSER) htmlcov/index.html
-
 coverage-ci:
-	coverage run --source sceptre setup.py test
-	coverage report -m
-	coverage xml
+	coverage erase
+	coverage run --source sceptre -m pytest
+	coverage html
+
+coverage: coverage-ci
+	coverage report --show-missing
+	$(BROWSER) htmlcov/index.html
 
 docs:
 	rm -f docs/sceptre.rst
@@ -117,14 +116,15 @@ serve-docs-commit: docs-commit
 	$(MAKE) -C docs serve-commit
 
 dist: clean
+	python setup.py check -r -s
 	python setup.py sdist
 	python setup.py bdist_wheel
 	ls -l dist
 
 install: clean
-	python setup.py install
+	pip install .
 
 install-dev: clean
-	pip install -r requirements_dev.txt
-	pip install -r requirements_tests.txt
+	pip install -r requirements.txt
+	pip install -e .
 	@echo "To install the documentation dependencies, run:\ncd docs\nmake install"

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from six import string_types
 
 from sceptre.hooks import Hook
 from sceptre.exceptions import InvalidHookArgumentTypeError
@@ -26,7 +27,7 @@ class ASGScalingProcesses(Hook):
         :raises: InvalidHookArgumentValueError, if not using resume or suspend.
         """
 
-        if not isinstance(self.argument, basestring):
+        if not isinstance(self.argument, string_types):
             raise InvalidHookArgumentTypeError(
                 'The argument "{0}" is the wrong type - asg_scaling_processes '
                 'hooks require arguments of type string.'.format(self.argument)
@@ -52,7 +53,7 @@ class ASGScalingProcesses(Hook):
 
         autoscaling_group_names = self._find_autoscaling_groups()
         for autoscaling_group in autoscaling_group_names:
-            self.connection_manager.call(
+            self.stack.connection_manager.call(
                 service="autoscaling",
                 command=action,
                 kwargs={
@@ -66,15 +67,10 @@ class ASGScalingProcesses(Hook):
         Retrieves all resources in stack.
         :return: list
         """
-        full_stack_name = "-".join([
-            self.environment_config["project_code"],
-            self.environment_config.environment_path,
-            self.stack_config.name
-        ]).replace("/", "-")
-        response = self.connection_manager.call(
+        response = self.stack.connection_manager.call(
             service="cloudformation",
             command="describe_stack_resources",
-            kwargs={"StackName": full_stack_name}
+            kwargs={"StackName": self.stack.external_name}
         )
         return response.get("StackResources", [])
 
