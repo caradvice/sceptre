@@ -1,6 +1,7 @@
 from uuid import uuid1
 
 import click
+import logging
 
 from sceptre.cli.helpers import catch_exceptions, confirmation, get_stack
 from sceptre.cli.helpers import write
@@ -29,7 +30,7 @@ def update_command(ctx, path, change_set, verbose, yes):
     Updates a stack for a given config PATH. Or perform an update via
     change-set when the change-set flag is set.
     """
-
+    logger = logging.getLogger(__name__)
     stack = get_stack(ctx, path)
     if change_set:
         change_set_name = "-".join(["change-set", uuid1().hex])
@@ -38,8 +39,12 @@ def update_command(ctx, path, change_set, verbose, yes):
             # Wait for change set to be created
             status = stack.wait_for_cs_completion(change_set_name)
 
+            # Alow empty updates
+            if status == StackChangeSetStatus.NO_UPDATES:
+                logger.info("No updates to apply")
+                exit(0)
             # Exit if change set fails to create
-            if status != StackChangeSetStatus.READY:
+            elif status != StackChangeSetStatus.READY:
                 exit(1)
 
             # Describe changes
