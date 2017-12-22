@@ -39,7 +39,7 @@ def update_command(ctx, path, change_set, verbose, yes):
             # Wait for change set to be created
             status = stack.wait_for_cs_completion(change_set_name)
 
-            # Alow empty updates
+            # Allow empty updates
             if status == StackChangeSetStatus.NO_UPDATES:
                 logger.info("No updates to apply")
                 exit(0)
