@@ -449,14 +449,14 @@ class Stack(object):
                 "Parameters": self._format_parameters(self.parameters),
                 "Capabilities": ['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM'],
                 "ChangeSetName": change_set_name,
-                "NotificationARNs": self.config.get("notifications", []),
+                "NotificationARNs": self.notifications,
                 "ChangeSetType": change_set_type,
                 "Tags": [
                     {"Key": str(k), "Value": str(v)}
-                    for k, v in self.config.get("stack_tags", {}).items()
+                    for k, v in self.tags.items()
                 ]
             }
-            create_change_set_kwargs.update(self._get_template_details())
+            create_change_set_kwargs.update(self.template.get_boto_call_parameter())
             create_change_set_kwargs.update(self._get_role_arn())
             self.logger.debug(
                 "%s - Creating %s change set '%s'",
@@ -476,6 +476,9 @@ class Stack(object):
                 msg = str(e)
 
                 if (
+                        "Stack [{0}] does not exist".format(
+                            self.external_name)
+                        in msg or
                         "Stack with id {0} does not exist".format(
                             self.external_name)
                         in msg
