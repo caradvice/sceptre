@@ -724,6 +724,7 @@ class Stack(object):
         cs_description = self.describe_change_set(change_set_name)
 
         cs_status = cs_description["Status"]
+        cs_status_reason = cs_description.get("StatusReason")
         cs_exec_status = cs_description["ExecutionStatus"]
         possible_statuses = [
             "CREATE_PENDING", "CREATE_IN_PROGRESS",
@@ -755,6 +756,10 @@ class Stack(object):
                 cs_exec_status in ["UNAVAILABLE", "AVAILABLE"]
         ):
             return StackChangeSetStatus.PENDING
+        elif ( cs_status == "FAILED" and
+               cs_status_reason is not None and
+               "The submitted information didn't contain changes." in cs_status_reason ):
+            return StackChangeSetStatus.NO_UPDATES
         elif (
                 cs_status in ["DELETE_COMPLETE", "FAILED"] or
                 cs_exec_status in [

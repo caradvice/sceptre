@@ -904,7 +904,7 @@ class TestStack(object):
     ):
         scss = StackChangeSetStatus
         return_values = {                                                                                                     # NOQA
-                 "Status":    ('CREATE_PENDING', 'CREATE_IN_PROGRESS', 'CREATE_COMPLETE', 'DELETE_COMPLETE', 'FAILED'),       # NOQA
+                 "Status":    ('CREATE_PENDING', 'CREATE_IN_PROGRESS', 'CREATE_COMPLETE', 'DELETE_COMPLETE', 'FAILED'),       # NOQA                              # NOQA
         "ExecutionStatus": {                                                                                                  # NOQA
         'UNAVAILABLE':         (scss.PENDING,     scss.PENDING,         scss.PENDING,      scss.DEFUNCT,      scss.DEFUNCT),  # NOQA
         'AVAILABLE':           (scss.PENDING,     scss.PENDING,         scss.READY,        scss.DEFUNCT,      scss.DEFUNCT),  # NOQA
@@ -940,6 +940,14 @@ class TestStack(object):
             }
             with pytest.raises(UnknownStackChangeSetStatusError):
                 self.stack._get_cs_status(sentinel.change_set_name)
+
+        mock_describe_change_set.return_value = {
+                "Status": 'FAILED',
+                "ExecutionStatus": 'UNAVAILABLE',
+                "StatusReason": "The submitted information didn't contain changes. Submit different information to create a change set."
+            }
+        assert self.stack._get_cs_status(sentinel.change_set_name) == StackChangeSetStatus.NO_UPDATES
+        
 
         mock_describe_change_set.return_value = {
             "Status": 'UNKOWN_STATUS',
