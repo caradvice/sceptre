@@ -476,19 +476,31 @@ def update_with_change_set(ctx, environment, stack, verbose):
     Creates a change set for ENVIRONMENT/STACK, prints out a description of the
     changes, and prompts the user to decide whether to execute or delete it.
     """
+    logger = logging.getLogger(__name__)
     env = get_env(ctx.obj["sceptre_dir"], environment, ctx.obj["options"])
     change_set_name = "-".join(["change-set", uuid1().hex])
-    with change_set(env.stacks[stack], change_set_name):
-        status = env.stacks[stack].wait_for_cs_completion(change_set_name)
-        description = env.stacks[stack].describe_change_set(change_set_name)
-        if not verbose:
-            description = _simplify_change_set_description(description)
-        write(description, ctx.obj["output_format"])
-        if status != StackChangeSetStatus.READY:
-            exit(1)
-        if click.confirm("Proceed with stack update?"):
-            env.stacks[stack].execute_change_set(change_set_name)
-
+    try:
+        with change_set(env.stacks[stack], change_set_name):
+            status = env.stacks[stack].wait_for_cs_completion(change_set_name)
+            description = env.stacks[stack].describe_change_set(change_set_name)
+            if not verbose:
+                description = _simplify_change_set_description(description)
+            write(description, ctx.obj["output_format"])
+            if status == StackChangeSetStatus.NO_UPDATES:
+                logger.info("No changes to apply.")
+                exit(0)
+            if status != StackChangeSetStatus.READY:
+                exit(1)
+            if click.confirm("Proceed with stack update?"):
+                env.stacks[stack].execute_change_set(change_set_name)
+    except Exception as error:
+        env_str = environment.__str__().replace("/","-")
+        stack_str = "%s-%s-%s" % (env.stacks[stack].project, env_str, stack)
+        if ("Stack [%s] does not exist" % stack_str) in error.__str__():
+            logger.info("Stack doesn't exist, creating..")
+            ctx.invoke(create_stack, environment=environment, stack=stack)
+        else:
+            raise error
 
 @contextlib.contextmanager
 def change_set(stack, name):
